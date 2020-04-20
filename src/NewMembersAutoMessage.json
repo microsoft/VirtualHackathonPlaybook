@@ -1,0 +1,113 @@
+{
+    "definition": {
+        "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+        "actions": {
+            "HTTP": {
+                "inputs": {
+                    "authentication": {
+                        "audience": "https://graph.microsoft.com",
+                        "clientId": "{your-client-id}",
+                        "secret": "{your-secret-id}",
+                        "tenant": "{your-tenant}",
+                        "type": "ActiveDirectoryOAuth"
+                    },
+                    "headers": {
+                        "Content-Type": "application/json"
+                    },
+                    "method": "GET",
+                    "uri": "https://graph.microsoft.com/v1.0/users/@{triggerBody()?['id']}"
+                },
+                "runAfter": {},
+                "type": "Http"
+            },
+            "Parse_JSON": {
+                "inputs": {
+                    "content": "@body('HTTP')",
+                    "schema": {
+                        "properties": {
+                            "displayName": {
+                                "type": "string"
+                            },
+                            "mail": {
+                                "type": "string"
+                            }
+                        },
+                        "type": "object"
+                    }
+                },
+                "runAfter": {
+                    "HTTP": [
+                        "Succeeded"
+                    ]
+                },
+                "type": "ParseJson"
+            },
+            "Post_a_message_as_the_Flow_bot_to_a_user": {
+                "inputs": {
+                    "body": {
+                        "messageBody": "Hello new hacker and welcome to the Hackorona! \nPlease check out the \"Guidelines for New Hackers\" channel and start hacking!",
+                        "messageTitle": "Welcome to the Hackorona!",
+                        "recipient": {
+                            "to": "@body('Parse_JSON')?['mail']"
+                        }
+                    },
+                    "host": {
+                        "connection": {
+                            "name": "@parameters('$connections')['teams']['connectionId']"
+                        }
+                    },
+                    "method": "post",
+                    "path": "/flowbot/actions/notification/recipienttypes/user"
+                },
+                "runAfter": {
+                    "Parse_JSON": [
+                        "Succeeded"
+                    ]
+                },
+                "type": "ApiConnection"
+            }
+        },
+        "contentVersion": "1.0.0.0",
+        "outputs": {},
+        "parameters": {
+            "$connections": {
+                "defaultValue": {},
+                "type": "Object"
+            }
+        },
+        "triggers": {
+            "When_a_new_team_member_is_added": {
+                "inputs": {
+                    "host": {
+                        "connection": {
+                            "name": "@parameters('$connections')['teams']['connectionId']"
+                        }
+                    },
+                    "method": "get",
+                    "path": "/trigger/v1.0/groups/delta",
+                    "queries": {
+                        "$select": "members",
+                        "groupId": "{your-teams-groupId}"
+                    }
+                },
+                "recurrence": {
+                    "frequency": "Minute",
+                    "interval": 3
+                },
+                "splitOn": "@triggerBody()",
+                "type": "ApiConnection"
+            }
+        }
+    },
+    "parameters": {
+        "$connections": {
+            "value": {
+                "teams_1": {
+                    "connectionId": "/subscriptions/{your-subscription-id}/resourceGroups/Hackorona/providers/Microsoft.Web/connections/teams",
+                    "connectionName": "teams",
+                    "id": "/subscriptions/{your-subscription-id}/providers/Microsoft.Web/locations/westeurope/managedApis/teams"
+                }
+            }
+        }
+    }
+}
